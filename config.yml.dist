@@ -1,0 +1,2 @@
+default:
+  data: "path_to_data_file"
