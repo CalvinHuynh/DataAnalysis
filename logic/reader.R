@@ -3,10 +3,41 @@ Sys.setenv(lang = "en")
 library(config)
 library(qdap)
 library(tm)
+library(readtext)
 config <- config::get(file = "config.yml")
 
+
+# General functions -------------------------------------------------------
+
+convertToBinary <- function(number){
+  if(number >= 7){
+    return(1)
+  } else {
+    return(0)
+  }
+}
+
 # Reading tab seperated file
-trainData <- read.table(config$data, sep = '\t',header = TRUE)
+trainIMDBData <- read.table(config$firstDataFile, sep = '\t', header = TRUE)
+trainIMDBData$id <- sub("^", "1_", trainIMDBData$id)
+
+trainData2positive <- readtext(paste0(config$trainDataDirectoryPositive,"*"))
+trainData2positive$V3 <- 0
+trainData2positive <- trainData2positive[c("doc_id", "V3", "text")]
+colnames(trainData2positive) <- colnames(trainIMDBData)
+
+trainData2negative <- readtext(paste0(config$trainDataDirectoryNegative,"*"))
+trainData2negative$V3 <- 0
+trainData2negative <- trainData2negative[c("doc_id", "V3", "text")]
+colnames(trainData2negative) <- colnames(trainIMDBData)
+
+combinedTrainData2 <- rbind(trainData2positive, trainData2negative)
+
+combinedTrainData2$id <- gsub(combinedTrainData2$id, pattern = ".txt", replacement = "")
+combinedTrainData2$id <- sub("^", "2_", combinedTrainData2$id)
+combinedTrainData2$sentiment <- sub(".*_","",combinedTrainData2$id)
+combinedTrainData2$sentiment <- as.numeric(combinedTrainData2$sentiment)
+combinedTrainData2$sentiment <- lapply(combinedTrainData2$sentiment, convertToBinary)
 
 # Basic cleaning function
 commonCleaning <- function(textToClean){
@@ -18,19 +49,14 @@ commonCleaning <- function(textToClean){
   textToClean <- removeNumbers(textToClean)
   # Remove whitespace
   textToClean <- stripWhitespace(textToClean)
-  
   # Remove text within brackets
   textToClean <- bracketX(textToClean)
-  
   # Replace numbers with words
   textToClean <- replace_number(textToClean)
-  
   # Replace abbreviations
   textToClean <- replace_abbreviation(textToClean)
-  
   # Replace contractions
   textToClean <- replace_contraction(textToClean)
-  
   # Replace symbols with words
   textToClean <- replace_symbol(textToClean)
   
@@ -47,18 +73,18 @@ removeCommonStopWords <- function(textToClean, customWords = NULL){
 }
 
 # Convert the review data using the utf-8 encoding
-trainData$review <- iconv(enc2utf8(as.character(trainData$review)),sub = "byte")
-trainData$review <- commonCleaning(trainData$review)
-trainData$review <- removeCommonStopWords(trainData$review)
+trainIMDBData$review <- iconv(enc2utf8(as.character(trainIMDBData$review)),sub = "byte")
+trainIMDBData$review <- commonCleaning(trainIMDBData$review)
+trainIMDBData$review <- removeCommonStopWords(trainIMDBData$review)
 
-term_count <- freq_terms(trainData$review, 10)
+term_count <- freq_terms(trainIMDBData$review, 10)
 plot(term_count)
 
-trainDataSource <- VectorSource(trainData$review)
-trainDataCorpus <- VCorpus(trainDataSource)
+trainIMDBDataSource <- VectorSource(trainIMDBData$review)
+trainIMDBDataCorpus <- VCorpus(trainIMDBDataSource)
 
-train_dtm <- DocumentTermMatrix(trainDataCorpus)
-train_tdm <- TermDocumentMatrix(trainDataCorpus)
+train_dtm <- DocumentTermMatrix(trainIMDBDataCorpus)
+train_tdm <- TermDocumentMatrix(trainIMDBDataCorpus)
 
 
 ### Not enough memory
