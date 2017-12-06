@@ -4,16 +4,46 @@ library(config)
 library(qdap)
 library(tm)
 library(readtext)
+library(RTextTools)
+library(e1071)
 config <- config::get(file = "config.yml")
 
 # General functions -------------------------------------------------------
 
+# Convert review rating to binary
 convertToBinary <- function(number){
   if(number >= 7){
     return(1)
   } else {
     return(0)
   }
+}
+
+removeCommonStopWords <- function(textToClean, customWords = NULL){
+  if(!is.null(customWords)){
+    total_stops <- c(customWords, stopwords("en"))
+    return(removeWords(textToClean, total_stops))
+  } else {
+    return(removeWords(textToClean, stopwords("en")))
+  }
+}
+
+# Convert the review data using the utf-8 encoding
+convertToUtf8Enc <- function(text){
+  return(iconv(enc2utf8(as.character(text)),sub = "byte"))
+}
+
+# Shuffle dataframe rowwise
+shuffleDataframe <- function(dataframe){
+  dataframe <- dataframe[sample(nrow(dataframe)), ]
+  return(dataframe)
+}
+
+convertTextToCorpus <- function(text){
+  vectorSource <- VectorSource(text)
+  corpus <- VCorpus(vectorSource)
+  
+  return(corpus)
 }
 
 # Reading data ------------------------------------------------------------
@@ -47,6 +77,7 @@ readSecondDataset <- function(){
 }
 
 combinedTrainData2 <- readSecondDataset()
+
 # Basic cleaning function
 commonCleaning <- function(textToClean){
   # All lowercase
@@ -71,43 +102,22 @@ commonCleaning <- function(textToClean){
   return(textToClean)
 }
 
-removeCommonStopWords <- function(textToClean, customWords = NULL){
-  if(!is.null(customWords)){
-    total_stops <- c(customWords, stopwords("en"))
-    return(removeWords(textToClean, total_stops))
-  } else {
-    return(removeWords(textToClean, stopwords("en")))
-  }
-}
-
-# Convert the review data using the utf-8 encoding
-convertToUtf8Enc <- function(text){
-  return(iconv(enc2utf8(as.character(text)),sub = "byte"))
-}
-
 trainIMDBData$review <- convertToUtf8Enc(trainIMDBData$review)
 trainIMDBData$review <- commonCleaning(trainIMDBData$review)
 trainIMDBData$review <- removeCommonStopWords(trainIMDBData$review)
 
 combinedTrainData2$review <- convertToUtf8Enc(combinedTrainData2$review)
 combinedTrainData2$review <- commonCleaning(combinedTrainData2$review)
+combinedTrainData2$review <- removeCommonStopWords(combinedTrainData2$review)
 
-# term_count <- freq_terms(trainIMDBData$review, 10)
-# plot(term_count)
+# TDM & DTM creation ---------------------------------
 
-convertTextToCorpus <- function(text){
-  vectorSource <- VectorSource(text)
-  corpus <- VCorpus(vectorSource)
-  
-  return(corpus)
-}
-
-trainIMDBDataCorpus <- convertTextToCorpus(trainIMDBData$review)
+trainIMDBDataCorpus <- convertTextToCorpus(shuffleDataframe(trainIMDBData)$review)
 
 train_dtm <- DocumentTermMatrix(trainIMDBDataCorpus)
 train_tdm <- TermDocumentMatrix(trainIMDBDataCorpus)
 
-### Not enough memory
+# Requires 7.7 Gb
 train_tdm_m <- as.matrix(train_tdm)
 
 term_tdm_freq <- rowSums(train_tdm_m)
@@ -122,9 +132,10 @@ barplot(term_tdm_freq[1:10], col = "tan", las = 2)
 
 trainData2Corpus <- convertTextToCorpus(combinedTrainData2$review)
 
-train2_dtm <- DocumentTermMatrix(trainData2Corpus)
-train2_tdm <- TermDocumentMatrix(trainData2Corpus)
+train_dtm2 <- DocumentTermMatrix(trainData2Corpus)
+train_tdm2 <- TermDocumentMatrix(trainData2Corpus)
 
+# Requires 22.0 Gb
 train2_tdm_m <- as.matrix(train_tdm2)
 
 term2_tdm_freq <- rowSums(train2_tdm_m)
@@ -134,3 +145,18 @@ term2_tdm_freq <- sort(term2_tdm_freq, decreasing = TRUE)
 term2_tdm_freq[1:10]
 
 barplot(term2_tdm_freq[1:10], col = "tan", las = 2)
+
+
+# RTextTools --------------------------------------------------------------
+
+matrixData= create_matrix(trainIMDBData[, 3], language="english") 
+trainDataMatrix = as.matrix(matrixData[1:1000, ])
+
+classifier = naiveBayes(trainDataMatrix[1:500, ], as.factor(trainIMDBData[1:500, 2]))
+
+predicted = predict(classifier, trainDataMatrix[501:600, ]); 
+# trainIMDBData[11:15, 3]
+# predicted
+
+table(trainIMDBData[501:600, 2], predicted)
+recall_accuracy(trainIMDBData[501:600, 2], predicted)
