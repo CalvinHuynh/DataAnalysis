@@ -50,9 +50,9 @@ convertTextToCorpus <- function(text) {
 # Reading data ------------------------------------------------------------
 
 # Data set 1
-readFirstDataset <- function(){
+readFirstDataset <- function(stringAsFactor = FALSE){
   trainIMDBData <-
-    read.table(config$firstDataFile, sep = '\t', header = TRUE)
+    read.table(config$firstDataFile, sep = '\t', header = TRUE, stringsAsFactors = stringAsFactor)
   trainIMDBData$id <- sub("^", "1_", trainIMDBData$id)
   return(trainIMDBData)
 }
@@ -112,6 +112,8 @@ commonCleaning <- function(textToClean) {
   textToClean <- replace_contraction(textToClean)
   # Replace symbols with words
   textToClean <- replace_symbol(textToClean)
+  
+  textToClean <- stemDocument(textToClean)
   
   return(textToClean)
 }

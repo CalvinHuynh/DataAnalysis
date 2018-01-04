@@ -76,7 +76,8 @@ attempt1 <- function() {
     tm_map(removePunctuation) %>%
     tm_map(removeNumbers) %>%
     tm_map(removeWords, stopwords(kind = "en")) %>%
-    tm_map(stripWhitespace)
+    tm_map(stripWhitespace) %>%
+    tm_map(stemDocument)
   
   dtm <- DocumentTermMatrix(corpus)
   dtm
@@ -111,11 +112,9 @@ attempt1 <- function() {
     DocumentTermMatrix(corpus_test_set, control = list(dictionary = fivefreq))
   
   system.time(classifier <-
-                naiveBayes(
-                  as.matrix(dtm_train),
-                  (df_train$sentiment),
-                  laplace = 0
-                ))
+                naiveBayes(as.matrix(dtm_train),
+                           (df_train$sentiment),
+                           laplace = 0))
   
   system.time(pred <-
                 predict(classifier, newdata = as.matrix(dtm_test)))
@@ -128,27 +127,46 @@ attempt1 <- function() {
   recall_accuracy(pred, df_test$sentiment)
 }
 
-attempt2 <- function(){
+attempt2 <- function() {
   trainIMDBData <- shuffleDataframe(trainIMDBData)
   trainIMDBData$sentiment <- as.factor(trainIMDBData$sentiment)
-
-  matrix = create_matrix(trainIMDBData[,3], language = "english", removeStopwords = FALSE,
-                         removeNumbers = TRUE, stemWords = FALSE, 
-                         removePunctuation = TRUE, stripWhitespace = TRUE) 
+  trainIMDBData$review <- commonCleaning(trainIMDBData$review)
+  
+  matrix = create_matrix(
+    trainIMDBData[, 3],
+    language = "english",
+    removeStopwords = FALSE,
+    removeNumbers = TRUE,
+    stemWords = FALSE,
+    removePunctuation = TRUE,
+    stripWhitespace = TRUE
+  )
+  matrix <- removeSparseTerms(matrix, 0.995)
   
   mat = as.matrix(matrix)
-  system.time( classifier = naiveBayes(mat[1:6084, ], trainIMDBData[1:6084, 2]) )
-  predicted = system.time( predict(classifier, mat[6085:8693, ]) )
-  predicted
+  system.time(classifier <-
+                naiveBayes(mat[1:6084, ], trainIMDBData[1:6084, 2]))
+  system.time(predicted <- predict(classifier, mat[6085:8693, ]))
   
+  # attempt 1: 0.5289383, without cleaning and removeSparseTerms = 0.995
+  # attempt 2: 0.563051, with cleaning and removeSparseTerms = 0.995
+  recall_accuracy(trainIMDBData[6085:8693, 2], predicted)
 }
-dtm = create_matrix(trainIMDBData[1:1000,3], language = "english", removeNumbers = TRUE
-                    ,removePunctuation = TRUE, removeStopwords = TRUE, stripWhitespace = TRUE)
+dtm = create_matrix(
+  trainIMDBData[1:1000, 3],
+  language = "english",
+  removeNumbers = TRUE
+  ,
+  removePunctuation = TRUE,
+  removeStopwords = TRUE,
+  stripWhitespace = TRUE
+)
 
 matrix = as.matrix(dtm)
 # matrix[1:10,]
-classifier = naiveBayes(matrix[1:800,], as.factor(trainIMDBData[1:800,2]))
-predicted = predict(classifier, matrix[801:1000,]);
+classifier = naiveBayes(matrix[1:800,], as.factor(trainIMDBData[1:800, 2]))
+predicted = predict(classifier, matrix[801:1000,])
+
 table(trainIMDBData[801:1000, 2], predicted)
 recall_accuracy(trainIMDBData[801:1000, 2], predicted)
 
@@ -164,27 +182,49 @@ recall_accuracy(trainIMDBData[801:1000, 2], predicted)
 # table(trainIMDBData[501:600, 2], predicted)
 # recall_accuracy(trainIMDBData[501:600, 2], predicted)
 
-testCaseNaiveBase <- function(){
+testCaseNaiveBase <- function() {
+  pos_tweets = rbind(
+    c("I love this car", "positive"),
+    c("This view is amazing",
+      "positive"),
+    c("I feel great this morning", "positive"),
+    c("I am so excited about the concert",
+      "positive"),
+    c("He is my best friend", "positive")
+  )
   
-  pos_tweets = rbind(c("I love this car", "positive"), c("This view is amazing", 
-                                                         "positive"), c("I feel great this morning", "positive"), c("I am so excited about the concert", 
-                                                                                                                    "positive"), c("He is my best friend", "positive"))
+  
+  neg_tweets = rbind(
+    c("I do not like this car", "negative"),
+    c("This view is horrible",
+      "negative"),
+    c("I feel tired this morning", "negative"),
+    c("I am not looking forward to the concert",
+      "negative"),
+    c("He is my enemy", "negative")
+  )
   
   
-  neg_tweets = rbind(c("I do not like this car", "negative"), c("This view is horrible", 
-                                                                "negative"), c("I feel tired this morning", "negative"), c("I am not looking forward to the concert", 
-                                                                                                                           "negative"), c("He is my enemy", "negative"))
-  
-  
-  test_tweets = rbind(c("feel happy this morning", "positive"), c("larry friend", 
-                                                                  "positive"), c("not like that man", "negative"), c("house not great", "negative"), 
-                      c("your song annoying", "negative"))
+  test_tweets = rbind(
+    c("feel happy this morning", "positive"),
+    c("larry friend",
+      "positive"),
+    c("not like that man", "negative"),
+    c("house not great", "negative"),
+    c("your song annoying", "negative")
+  )
   
   tweets = rbind(pos_tweets, neg_tweets, test_tweets)
   
   # native bayes
-  matrix = create_matrix(tweets[, 1], language = "english", removeStopwords = FALSE, 
-                         removeNumbers = TRUE, stemWords = FALSE, tm::weightTfIdf)
+  matrix = create_matrix(
+    tweets[, 1],
+    language = "english",
+    removeStopwords = FALSE,
+    removeNumbers = TRUE,
+    stemWords = FALSE,
+    tm::weightTfIdf
+  )
   mat = as.matrix(matrix)
   classifier = naiveBayes(mat[1:10, ], as.factor(tweets[1:10, 2]))
   predicted = predict(classifier, mat[11:15, ])
