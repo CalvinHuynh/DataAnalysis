@@ -100,7 +100,8 @@ readSecondDataset <- function(columnNames) {
   return(combinedTrainData2)
 }
 
-readLargeTextFile <- function(){
+# Amazon reviews data set
+readAmazonReviews <- function(){
   largeDataFile <- reconstructColumnNames(read.horizontalTextfile(paste0(config$largeDataFile)))
   largeDataFile$sentiment <- as.numeric(sapply(largeDataFile$sentiment, convertToBinaryScale1to5))
   # write.csv(largeDataFile, file = "preparedAmazonReviews.csv")
