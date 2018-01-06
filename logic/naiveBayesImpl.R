@@ -66,6 +66,7 @@ temporaryStashed <- function() {
 set.seed(123)
 
 attempt1 <- function() {
+  trainIMDBData <- readFirstDataset()
   trainIMDBData <- shuffleDataframe(trainIMDBData)
   trainIMDBData$sentiment <- as.factor(trainIMDBData$sentiment)
   
@@ -81,6 +82,10 @@ attempt1 <- function() {
   
   dtm <- DocumentTermMatrix(corpus)
   dtm
+  
+  threeForth <- paste0(1:6084)
+  oneForth <- paste0(6085:8693)
+  
   # ?removeSparseTerms
   # removeSparseTerms(dtm, 0.95)
   
@@ -90,20 +95,19 @@ attempt1 <- function() {
   # floor(0.5 * nrow(dtm))
   # train_ind <- sample((nrow(dtm)), size = sample_size_dtm)
   
-  df_train <- trainIMDBData[6085:8693, ]
-  df_test <- trainIMDBData[1:6084, ]
+  df_train <- trainIMDBData[oneForth,]
+  df_test <- trainIMDBData[threeForth,]
   
   # plyr::count(df_train$sentiment)
   # plyr::count(df_test$sentiment)
   
-  dtm_train <- dtm[6085:8693, ]
-  dtm_test <- dtm[1:6084, ]
+  dtm_train <- dtm[oneForth,]
+  dtm_test <- dtm[threeForth,]
   
-  corpus_train_set <- corpus[6085:8693]
-  corpus_test_set <- corpus[1:6084]
+  corpus_train_set <- corpus[oneForth]
+  corpus_test_set <- corpus[threeForth]
   
-  # reduce words that appear in less than X reviews
-  fivefreq <- findFreqTerms(dtm_train, 20)
+  fivefreq <- findFreqTerms(dtm_train, 5)
   
   dtm_train <-
     DocumentTermMatrix(corpus_train_set, control = list(dictionary = fivefreq))
@@ -128,14 +132,16 @@ attempt1 <- function() {
 }
 
 attempt2 <- function() {
+  trainIMDBData <- readFirstDataset()
   trainIMDBData <- shuffleDataframe(trainIMDBData)
   trainIMDBData$sentiment <- as.factor(trainIMDBData$sentiment)
+  trainIMDBData$review <-
+    removeCommonStopWords(trainIMDBData$review)
   trainIMDBData$review <- commonCleaning(trainIMDBData$review)
-  
+
   matrix = create_matrix(
     trainIMDBData[, 3],
     language = "english",
-    removeStopwords = FALSE,
     removeNumbers = TRUE,
     stemWords = FALSE,
     removePunctuation = TRUE,
@@ -143,20 +149,25 @@ attempt2 <- function() {
   )
   matrix <- removeSparseTerms(matrix, 0.995)
   
+  # data split ratio of 70 /30
+  threeForth <- paste0(1:6084)
+  oneForth <- paste0(6085:8693)
+  
   mat = as.matrix(matrix)
   system.time(classifier <-
-                naiveBayes(mat[1:6084, ], trainIMDBData[1:6084, 2]))
-  system.time(predicted <- predict(classifier, mat[6085:8693, ]))
+                naiveBayes(mat[oneForth,], trainIMDBData[oneForth, 2]))
+  system.time(predicted <- predict(classifier, mat[threeForth,]))
   
-  # attempt 1: 0.5289383, without cleaning and removeSparseTerms = 0.995
-  # attempt 2: 0.563051, with cleaning and removeSparseTerms = 0.995
-  recall_accuracy(trainIMDBData[6085:8693, 2], predicted)
+  # attempt 1: 0.5289383, with create_matrix cleaning and removeSparseTerms = 0.995
+  # attempt 2: 0.563051, with precleaning and create_matrix cleaning, removeSparseTerms = 0.995
+  # attempt 3: 0.5120736, with precleaning and removeSparseTerms = 0.995
+  recall_accuracy(trainIMDBData[threeForth, 2], predicted)
 }
+
 dtm = create_matrix(
   trainIMDBData[1:1000, 3],
   language = "english",
-  removeNumbers = TRUE
-  ,
+  removeNumbers = TRUE  ,
   removePunctuation = TRUE,
   removeStopwords = TRUE,
   stripWhitespace = TRUE
@@ -164,8 +175,8 @@ dtm = create_matrix(
 
 matrix = as.matrix(dtm)
 # matrix[1:10,]
-classifier = naiveBayes(matrix[1:800,], as.factor(trainIMDBData[1:800, 2]))
-predicted = predict(classifier, matrix[801:1000,])
+classifier = naiveBayes(matrix[1:800, ], as.factor(trainIMDBData[1:800, 2]))
+predicted = predict(classifier, matrix[801:1000, ])
 
 table(trainIMDBData[801:1000, 2], predicted)
 recall_accuracy(trainIMDBData[801:1000, 2], predicted)
@@ -226,7 +237,7 @@ testCaseNaiveBase <- function() {
     tm::weightTfIdf
   )
   mat = as.matrix(matrix)
-  classifier = naiveBayes(mat[1:10, ], as.factor(tweets[1:10, 2]))
-  predicted = predict(classifier, mat[11:15, ])
+  classifier = naiveBayes(mat[1:10,], as.factor(tweets[1:10, 2]))
+  predicted = predict(classifier, mat[11:15,])
   recall_accuracy(tweets[11:15, 2], predicted)
 }
