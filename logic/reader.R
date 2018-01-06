@@ -11,8 +11,17 @@ config <- config::get(file = "config.yml")
 # General functions -------------------------------------------------------
 
 # Convert review rating to binary
-convertToBinary <- function(number) {
+convertToBinaryScale1to10 <- function(number) {
   if (number >= 7) {
+    return(1)
+  } else {
+    return(0)
+  }
+}
+
+# Converts the Amazon review to binary
+convertToBinaryScale1to5 <- function(number) {
+  if (number >= 4) {
     return(1)
   } else {
     return(0)
@@ -86,15 +95,16 @@ readSecondDataset <- function(columnNames) {
   combinedTrainData2$sentiment <-
     as.numeric(combinedTrainData2$sentiment)
   combinedTrainData2$sentiment <-
-    lapply(combinedTrainData2$sentiment, convertToBinary)
+    lapply(combinedTrainData2$sentiment, convertToBinaryScale1to10)
   
   return(combinedTrainData2)
 }
 
 readLargeTextFile <- function(){
-  # readtext(paste0(config$largeDataFile, "*"))
-  # largeDataFile <- read.tcsv(paste0(config$largeDataFile))
-  largeDataFile <- read.horizontalTextfile(paste0(config$largeDataFile))
+  largeDataFile <- reconstructColumnNames(read.horizontalTextfile(paste0(config$largeDataFile)))
+  largeDataFile$sentiment <- as.numeric(sapply(largeDataFile$sentiment, convertToBinaryScale1to5))
+  # write.csv(largeDataFile, file = "preparedAmazonReviews.csv")
+  return(largeDataFile)
 }
 
 # Basic cleaning function
@@ -176,7 +186,16 @@ reconstructColumnNames <- function(dataframe){
   
   dataframe <- dataframe %>%
     mutate(sentiment = gsub('.*:',"", sentiment)) %>%
-    mutate(review = gsub('.*:',"", review))
+    mutate(review = gsub('.*:',"", review)) %>%
+    mutate(sentiment = as.numeric(sentiment)) %>%
+    filter(!is.na(sentiment))
   
   return(dataframe)
+}
+
+countScoreDistribution <- function(dataframe){
+  scoreDistribution <- dataframe %>%
+    group_by(sentiment) %>%
+    summarise(number_of_people = n())
+  return(scoreDistribution)
 }
