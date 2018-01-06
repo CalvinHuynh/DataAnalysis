@@ -108,7 +108,7 @@ readLargeTextFile <- function(){
 }
 
 # Basic cleaning function
-commonCleaning <- function(textToClean) {
+commonCleaning <- function(textToClean, stemData = FALSE) {
   # All lowercase
   textToClean <- tolower(textToClean)
   # Remove punctuation
@@ -128,7 +128,9 @@ commonCleaning <- function(textToClean) {
   # Replace symbols with words
   textToClean <- replace_symbol(textToClean)
   
-  textToClean <- stemDocument(textToClean)
+  if(stemData){
+    textToClean <- stemDocument(textToClean)
+  }
   
   return(textToClean)
 }
