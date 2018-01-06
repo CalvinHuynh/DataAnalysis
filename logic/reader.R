@@ -1,19 +1,27 @@
 Sys.setenv(lang = "en")
+Sys.setlocale(category = "LC_ALL", locale = "English_United States.1252")
 
 library(config)
-library(qdap)
-library(tm)
 library(readtext)
-library(RTextTools)
-library(e1071)
-library(caret)
+library(plyr)
+library(dplyr)
+library(stringi)
 config <- config::get(file = "config.yml")
 
 # General functions -------------------------------------------------------
 
 # Convert review rating to binary
-convertToBinary <- function(number) {
+convertToBinaryScale1to10 <- function(number) {
   if (number >= 7) {
+    return(1)
+  } else {
+    return(0)
+  }
+}
+
+# Converts the Amazon review to binary
+convertToBinaryScale1to5 <- function(number) {
+  if (number >= 4) {
     return(1)
   } else {
     return(0)
@@ -87,13 +95,20 @@ readSecondDataset <- function(columnNames) {
   combinedTrainData2$sentiment <-
     as.numeric(combinedTrainData2$sentiment)
   combinedTrainData2$sentiment <-
-    lapply(combinedTrainData2$sentiment, convertToBinary)
+    lapply(combinedTrainData2$sentiment, convertToBinaryScale1to10)
   
   return(combinedTrainData2)
 }
 
+readLargeTextFile <- function(){
+  largeDataFile <- reconstructColumnNames(read.horizontalTextfile(paste0(config$largeDataFile)))
+  largeDataFile$sentiment <- as.numeric(sapply(largeDataFile$sentiment, convertToBinaryScale1to5))
+  # write.csv(largeDataFile, file = "preparedAmazonReviews.csv")
+  return(largeDataFile)
+}
+
 # Basic cleaning function
-commonCleaning <- function(textToClean) {
+commonCleaning <- function(textToClean, stemData = FALSE) {
   # All lowercase
   textToClean <- tolower(textToClean)
   # Remove punctuation
@@ -113,7 +128,76 @@ commonCleaning <- function(textToClean) {
   # Replace symbols with words
   textToClean <- replace_symbol(textToClean)
   
-  textToClean <- stemDocument(textToClean)
+  if(stemData){
+    textToClean <- stemDocument(textToClean)
+  }
   
   return(textToClean)
+}
+
+# function derived from https://stackoverflow.com/questions/17288197/reading-a-csv-file-organized-horizontally
+read.tcsv = function(file, header=TRUE, sep="\n", nrow = 3000,...) {
+  
+  n = max(count.fields(file, sep=sep), na.rm=TRUE)
+  n = nrow
+  x = readLines(file)
+  
+  .splitvar = function(x, sep, n) {
+    var = unlist(strsplit(x, split=sep))
+    length(var) = n
+    return(var)
+  }
+  
+  x = do.call(cbind, lapply(x, .splitvar, sep=sep, n=n))
+  x = apply(x, 1, paste, collapse=sep) 
+  out = read.csv(text=x, sep=sep, header=header, ...)
+  return(out)
+}
+
+# Data is from amazon movie reviews
+# functon to create a dataframe from text with horizontal column names, written specifically for the following url:
+# https://snap.stanford.edu/data/web-Movies.html 
+read.horizontalTextfile <- function(inputFile, dataStartPosn = 12, nfields = 8, TXTmaxLen = 3e3, eachColnameLen = 11){
+  dataStartPosn <- dataStartPosn
+  nfields <- nfields
+  TXTmaxLen <- TXTmaxLen
+  eachColnameLen <- eachColnameLen
+  
+  #download and read lines
+  dataLines <- readLines(file(inputFile, "r"))
+
+  #extract data
+  data <- stri_sub(dataLines, dataStartPosn, length=TXTmaxLen)
+  
+  #extract colnames
+  colnames <- unname(sapply(dataLines[1:(nfields+1)], function(x) substring(x, 1, eachColnameLen)))
+  
+  #form table
+  df <- data.frame(do.call(rbind, split(data, ceiling(seq_along(data)/(nfields+1)))))
+  
+  #formatting
+  df <- setNames(df, colnames)
+  df[-(nfields+1)]
+}
+
+reconstructColumnNames <- function(dataframe){
+  dataframe <- dataframe %>%
+    select("review/scor", "review/text")
+  
+  colnames(dataframe) <- c("sentiment","review")
+  
+  dataframe <- dataframe %>%
+    mutate(sentiment = gsub('.*:',"", sentiment)) %>%
+    mutate(review = gsub('.*:',"", review)) %>%
+    mutate(sentiment = as.numeric(sentiment)) %>%
+    filter(!is.na(sentiment))
+  
+  return(dataframe)
+}
+
+countScoreDistribution <- function(dataframe){
+  scoreDistribution <- dataframe %>%
+    group_by(sentiment) %>%
+    summarise(number_of_people = n())
+  return(scoreDistribution)
 }
