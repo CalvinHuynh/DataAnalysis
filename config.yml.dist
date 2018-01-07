@@ -1,5 +1,6 @@
 default:
   firstDataFile: "path_to_data_file"
-  secondDataFile: "path_to_second_data_file"
+  secondDataFile: "path_to_second_data_file" #obsolete
   trainDataDirectoryPositive: "path_to_directory_positive_reviews"
   trainDataDirectoryNegative: "path_to_directory_negative_reviews"
+  amazonDataSet: "path_to_amazon_file"

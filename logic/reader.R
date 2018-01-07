@@ -7,6 +7,8 @@ library(plyr)
 library(dplyr)
 library(stringi)
 library(tm)
+# library(SnowballC)
+# library(qdap)
 config <- config::get(file = "config.yml")
 
 # General functions -------------------------------------------------------
@@ -106,8 +108,13 @@ readSecondDataset <- function(columnNames) {
 readAmazonReviews <- function(){
   largeDataFile <- reconstructColumnNames(read.horizontalTextfile(paste0(config$largeDataFile)))
   largeDataFile$sentiment <- as.numeric(sapply(largeDataFile$sentiment, convertToBinaryScale1to5))
-  write.table(largeDataFile, file = "preparedAmazonReviews.csv", row.names = FALSE, sep = "€", quote =FALSE)
+  # write.table(largeDataFile, file = "preparedAmazonReviews.csv", row.names = FALSE, sep = '€', quote =FALSE)
   return(largeDataFile)
+}
+
+readLocalAmazonReviews <- function(){
+  amazonReviewsDf <- read.csv2(config$amazonDataSet, sep = '€')
+  return(amazonReviewsDf)
 }
 
 # Basic cleaning function
@@ -121,7 +128,7 @@ commonCleaning <- function(textToClean, stemData = FALSE) {
   # Remove whitespace
   textToClean <- stripWhitespace(textToClean)
   
-  ### gdap package not available in R 3.4.2
+  # ## gdap package not available in R 3.4.2
   # # Replace numbers with words
   # textToClean <- replace_number(textToClean)
   # # Replace abbreviations
@@ -160,6 +167,7 @@ read.tcsv = function(file, header=TRUE, sep="\n", nrow = 3000,...) {
 # Data is from amazon movie reviews
 # functon to create a dataframe from text with horizontal column names, written specifically for the following url:
 # https://snap.stanford.edu/data/web-Movies.html 
+# Code source: https://stackoverflow.com/questions/36476945/how-to-read-a-horizontal-file-from-r-line-by-line-to-a-table
 read.horizontalTextfile <- function(inputFile, dataStartPosn = 12, nfields = 8, TXTmaxLen = 3e3, eachColnameLen = 11){
   dataStartPosn <- dataStartPosn
   nfields <- nfields
