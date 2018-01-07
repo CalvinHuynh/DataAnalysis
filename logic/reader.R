@@ -6,6 +6,7 @@ library(readtext)
 library(plyr)
 library(dplyr)
 library(stringi)
+library(tm)
 config <- config::get(file = "config.yml")
 
 # General functions -------------------------------------------------------
@@ -44,6 +45,7 @@ convertToUtf8Enc <- function(text) {
 
 # Shuffle dataframe rowwise
 shuffleDataframe <- function(dataframe) {
+  set.seed(3)
   dataframe <- dataframe[sample(nrow(dataframe)),]
   return(dataframe)
 }
@@ -104,7 +106,7 @@ readSecondDataset <- function(columnNames) {
 readAmazonReviews <- function(){
   largeDataFile <- reconstructColumnNames(read.horizontalTextfile(paste0(config$largeDataFile)))
   largeDataFile$sentiment <- as.numeric(sapply(largeDataFile$sentiment, convertToBinaryScale1to5))
-  # write.csv(largeDataFile, file = "preparedAmazonReviews.csv")
+  write.table(largeDataFile, file = "preparedAmazonReviews.csv", row.names = FALSE, sep = "€", quote =FALSE)
   return(largeDataFile)
 }
 
@@ -118,16 +120,16 @@ commonCleaning <- function(textToClean, stemData = FALSE) {
   textToClean <- removeNumbers(textToClean)
   # Remove whitespace
   textToClean <- stripWhitespace(textToClean)
-  # Remove text within brackets
-  textToClean <- bracketX(textToClean)
-  # Replace numbers with words
-  textToClean <- replace_number(textToClean)
-  # Replace abbreviations
-  textToClean <- replace_abbreviation(textToClean)
-  # Replace contractions
-  textToClean <- replace_contraction(textToClean)
-  # Replace symbols with words
-  textToClean <- replace_symbol(textToClean)
+  
+  ### gdap package not available in R 3.4.2
+  # # Replace numbers with words
+  # textToClean <- replace_number(textToClean)
+  # # Replace abbreviations
+  # textToClean <- replace_abbreviation(textToClean)
+  # # Replace contractions
+  # textToClean <- replace_contraction(textToClean)
+  # # Replace symbols with words
+  # textToClean <- replace_symbol(textToClean)
   
   if(stemData){
     textToClean <- stemDocument(textToClean)
