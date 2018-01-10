@@ -40,9 +40,16 @@ removeCommonStopWords <- function(textToClean, customWords = NULL) {
   }
 }
 
-# Convert the review data using the utf-8 encoding
+# Convert the review data using the utf-8 encoding, replace any non utf-8 encoding with ""
 convertToUtf8Enc <- function(text) {
-  return(iconv(enc2utf8(as.character(text)), sub = "byte"))
+  # return(iconv(enc2utf8(as.character(text)), sub = ""))
+  return(iconv(text, "UTF-8", "UTF-8", sub = ""))
+}
+
+removeCertainCharacters <- function(text) {
+  text <- stri_replace_all(text, regex = "[^[:graph:]]", replacement = " ")
+  text <- iconv(text, "UTF-8", "UTF-8",sub = '')
+  return(text)
 }
 
 # Shuffle dataframe rowwise
@@ -108,12 +115,12 @@ readSecondDataset <- function(columnNames) {
 readAmazonReviews <- function(){
   largeDataFile <- reconstructColumnNames(read.horizontalTextfile(paste0(config$largeDataFile)))
   largeDataFile$sentiment <- as.numeric(sapply(largeDataFile$sentiment, convertToBinaryScale1to5))
-  # write.table(largeDataFile, file = "preparedAmazonReviews.csv", row.names = FALSE, sep = '€', quote =FALSE)
+  write.table(largeDataFile, file = "preparedAmazonReviews.csv", row.names = FALSE, sep = '|', quote = FALSE, fileEncoding = "UTF-8")
   return(largeDataFile)
 }
 
 readLocalAmazonReviews <- function(){
-  amazonReviewsDf <- read.csv2(config$amazonDataSet, sep = '€')
+  amazonReviewsDf <- read.csv2(config$amazonDataSet, sep = '|')
   return(amazonReviewsDf)
 }
 
